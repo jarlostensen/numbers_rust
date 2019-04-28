@@ -72,11 +72,12 @@ pub fn is_prime(n:i32) -> bool {
 /// correct according to mathematical convention (i.e. for a negative).
 pub fn modulo(a:i32, m:i32) -> i32 {
     let r = a % m;
+    // offset by m to make positive (iff a%m is negative)
     r + ((((r as u32) & 0x80000000)>>31) as i32)*m
 }
 
 /// extended Greatest Common Divisor algorithm
-/// returns (s, t, GCD) where s and t are the Bezout coefficients
+/// returns (s, t, GCD) such that a s + tb = GCD (s and t are the Bezout coefficients)
 pub fn extended_gcd(a:i32, b:i32) -> (i32, i32, i32) {
     let mut s = 0;
     let mut t = 1;
@@ -99,10 +100,12 @@ pub fn extended_gcd(a:i32, b:i32) -> (i32, i32, i32) {
         prev_t = tt;
     }
 
+    // a s + t b = r
     (prev_s, prev_t, prev_r)
 }
 
-/// returns b^e mod m
+/// returns b^e (mod m)
+/// not fast, but correct, and controls overflow by taking the modulo of each intermediate step.
 pub fn power_mod(b:i32, e:u32, m:i32) -> Option<i32> {
     if m == 1 { return None; }
     if e == 0 { if m > 1 { return Some(1);} else { return None;} }
@@ -110,6 +113,7 @@ pub fn power_mod(b:i32, e:u32, m:i32) -> Option<i32> {
     let mut _c = 1;
     let mut _e_prime:u32 = 0;
     while  _e_prime != e {
+        // this is an idiv every time, so don't expect performance!
         _c = (b * _c) % m;
         _e_prime = _e_prime+1;
     }
@@ -117,6 +121,7 @@ pub fn power_mod(b:i32, e:u32, m:i32) -> Option<i32> {
 }
 
 /// returns the inverse of x modulo m, iff x is relative prime to m, otherwise 0
+/// solves the equation x*x_inv + k*m = 1, using the GCD
 pub fn inv_modulo(x:i32, m:i32) -> i32 {
     let r = modulo(x,m );
     let (s,_,gcd) = extended_gcd(r, m);
@@ -127,7 +132,8 @@ pub fn inv_modulo(x:i32, m:i32) -> i32 {
     modulo(s,m)
 }
 
-/// attempts to solve the congruence ax=b (mod m) iff a solution exists.
+/// attempts to solve the congruence ax congruent b (mod m) iff a solution exists.
+/// solves the equation as x congruent a_inv * b (mod m), finding a_inv using inv_modulo.
 /// NOTE: this is not the most effective way to solve for large values of m, but it works
 pub fn solve_linear_congruence(a:i32, b:i32, m:i32) -> Option<i32> {
     let a_inv = inv_modulo(a,m);
@@ -137,6 +143,8 @@ pub fn solve_linear_congruence(a:i32, b:i32, m:i32) -> Option<i32> {
     None
 }
 
+/// ============================================================================
+/// Unit tests
 #[cfg(test)]
 mod tests {
     use ::{modulo, extended_gcd,inv_modulo, is_prime};
