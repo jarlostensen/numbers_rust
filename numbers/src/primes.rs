@@ -1,3 +1,5 @@
+/// 10K primes list used to look up primes (and for factorisation).
+/// Could be compressed or represented more intelligently if need be.
 pub static K_PRIMES_RAW:[i32;10000] = [
     2,3,5,7,11,13,17,19,23,29,
     31,37,41,43,47,53,59,61,67,71,

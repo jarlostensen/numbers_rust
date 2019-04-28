@@ -65,7 +65,7 @@ pub fn is_prime(n:i32) -> bool {
             lo = pivot+1;
         }
     }
-    return false;
+    false
 }
 
 /// calculate a modulo m
