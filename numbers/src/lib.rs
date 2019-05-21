@@ -2,12 +2,12 @@
 mod primes;
 
 /// based on https://web.archive.org/web/20120306040058/http://medialab.freaknet.org/martin/src/sqrt/sqrt.c
-pub fn integer_square_root(n:i32) -> i32 {
+pub fn integer_square_root(n:i64) -> i64 {
     let mut op= n;
     let mut res = 0;
 
     // ideally do this with a bitscanreverse intrinsic...
-    let mut bit = 1 << 30; // The second-to-top bit
+    let mut bit = 1 << 62; // The second-to-top bit
     while bit > n {
         bit >>= 2;
     }
@@ -25,44 +25,59 @@ pub fn integer_square_root(n:i32) -> i32 {
 }
 
 /// returns true if n is a prime number. Not particularly fast.
-pub fn is_prime(n:i32) -> bool {
+pub fn is_prime(n:i64) -> bool {
 
-    if n > primes::K_PRIMES_RAW[primes::K_PRIMES_RAW.len()-1] {
+    // some early outs
+    if n == 1 { return true; }
+    if n == 2 { return true; }
+    if n % 2 == 0 { return false; }
+    if n % 3 == 0 { return false; }
+
+    if n > primes::K_PRIMES_RAW[primes::K_PRIMES_RAW.len()-1] as i64 {
         // n is bigger than the largest number in our prime list
 
         let max = integer_square_root(n);
-        if max <= primes::K_PRIMES_RAW[primes::K_PRIMES_RAW.len()-1] {
-            // brute force check if factorizable by any member of our prime list
-           for i in 0..primes::K_PRIMES_RAW.len() {
-               if primes::K_PRIMES_RAW[i] > max {
-                   // no prime factor found
-                   return true;
-               }
-                if n % primes::K_PRIMES_RAW[i] == 0 {
-                    return false;
-                }
+        let mut p:i64=5;
+        // brute force check if factorizable by any member of our prime list (skip past 2 and 3)
+        for i in 2..primes::K_PRIMES_RAW.len() {
+           if primes::K_PRIMES_RAW[i] as i64 > max {
+               // no prime factor found
+               return true;
+           }
+            if n % primes::K_PRIMES_RAW[i] as i64 == 0 {
+                return false;
             }
+            p = primes::K_PRIMES_RAW[i] as i64;
         }
-        else {
-            //TODO: even more brute force...
-            panic!("not implemented for numbers as large as {}", n);
+
+        //TODO: can't really test any of this with 32 bit integers
+        let mut di = 2;
+        if (primes::K_PRIMES_RAW.len() & 1) != 0 {
+            di = 4;
+        }
+
+        // straight brute force
+        while p < max {
+            if  n % p == 0  { return false;	}
+            p += di;   // non multiples of 2 and 3 only {5,7,11,13,17,...}
+            di = 6-di; // di = {2,4}
         }
     }
-
-    // n is within the range of our prime list
-    // binary search for a match
-    let mut lo = 0;
-    let mut hi = primes::K_PRIMES_RAW.len()-1;
-    while lo<=hi {
-        let pivot = lo + (hi-lo)/2;
-        if primes::K_PRIMES_RAW[pivot] == n {
-            return true;
-        }
-        if primes::K_PRIMES_RAW[pivot] > n {
-            hi = pivot-1;
-        }
-        else {
-            lo = pivot+1;
+    else {
+        // n is within the range of our prime list
+        // binary search for a match
+        let mut lo = 0;
+        let mut hi = primes::K_PRIMES_RAW.len() - 1;
+        while lo <= hi {
+            let pivot = lo + (hi - lo) / 2;
+            if primes::K_PRIMES_RAW[pivot] as i64 == n {
+                return true;
+            }
+            if primes::K_PRIMES_RAW[pivot] as i64 > n {
+                hi = pivot - 1;
+            } else {
+                lo = pivot + 1;
+            }
         }
     }
     false
@@ -70,15 +85,15 @@ pub fn is_prime(n:i32) -> bool {
 
 /// calculate a modulo m
 /// correct according to mathematical convention (i.e. for a negative).
-pub fn modulo(a:i32, m:i32) -> i32 {
+pub fn modulo(a:i64, m:i64) -> i64 {
     let r = a % m;
     // offset by m to make positive (iff a%m is negative)
-    r + ((((r as u32) & 0x80000000)>>31) as i32)*m
+    r + ((((r as u32) & 0x80000000)>>31) as i64)*m
 }
 
 /// extended Greatest Common Divisor algorithm
 /// returns (s, t, GCD) such that a s + tb = GCD (s and t are the Bezout coefficients)
-pub fn extended_gcd(a:i32, b:i32) -> (i32, i32, i32) {
+pub fn extended_gcd(a:i64, b:i64) -> (i64, i64, i64) {
     let mut s = 0;
     let mut t = 1;
     let mut r = b;
@@ -106,7 +121,7 @@ pub fn extended_gcd(a:i32, b:i32) -> (i32, i32, i32) {
 
 /// returns b^e (mod m)
 /// not fast, but correct, and controls overflow by taking the modulo of each intermediate step.
-pub fn power_mod(b:i32, e:u32, m:i32) -> Option<i32> {
+pub fn power_mod(b:i64, e:u32, m:i64) -> Option<i64> {
     if m == 1 { return None; }
     if e == 0 { if m > 1 { return Some(1);} else { return None;} }
 
@@ -122,7 +137,7 @@ pub fn power_mod(b:i32, e:u32, m:i32) -> Option<i32> {
 
 /// returns the inverse of x modulo m, iff x is relative prime to m, otherwise 0
 /// solves the equation x*x_inv + k*m = 1, using the GCD
-pub fn inv_modulo(x:i32, m:i32) -> i32 {
+pub fn inv_modulo(x:i64, m:i64) -> i64 {
     let r = modulo(x,m );
     let (s,_,gcd) = extended_gcd(r, m);
     if gcd != 1 {
@@ -135,7 +150,7 @@ pub fn inv_modulo(x:i32, m:i32) -> i32 {
 /// attempts to solve the congruence ax congruent b (mod m) iff a solution exists.
 /// solves the equation as x congruent a_inv * b (mod m), finding a_inv using inv_modulo.
 /// NOTE: this is not the most effective way to solve for large values of m, but it works
-pub fn solve_linear_congruence(a:i32, b:i32, m:i32) -> Option<i32> {
+pub fn solve_linear_congruence(a:i64, b:i64, m:i64) -> Option<i64> {
     let a_inv = inv_modulo(a,m);
     if a_inv != 0 {
         return Some(modulo(b*a_inv,m));
@@ -198,6 +213,9 @@ mod tests {
         assert_eq!(false, is_prime(8));
         assert_eq!(false, is_prime(104724));
         assert_eq!(false, is_prime(3*104729));
+        assert_eq!(false, is_prime(104729*104729));
+        assert_eq!(false, is_prime(104730*104730));
+        assert_eq!(true, is_prime(10970467603));
         assert_eq!(true, is_prime(314173));
     }
 
